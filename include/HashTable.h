@@ -3,20 +3,15 @@
 //
 // Hash table implementation using chaining for collision resolution.
 // Inherits from HashTableInterface<K, V>.
-//
-// TODO: Implement all methods below.
-//       Decide on your internal structure and declare your member
-//       variables. Think carefully about which standard library
-//       container belongs at each level and document your choice
-//       in Design_Decisions.md.
-//
-// See project_05.md for full requirements.
+
 
 #ifndef HASH_TABLE_H
 #define HASH_TABLE_H
 
 #include "HashTableInterface.h"
+#include "HashTableEntry.h"
 #include <vector>
+#include <list>
 #include <utility>
 #include <functional>
 
@@ -24,41 +19,21 @@ template<class K, class V>
 class HashTable : public HashTableInterface<K, V>
 {
 private:
-
-    // TODO: Declare your member variables here.
-    //
-    // You need at minimum:
-    //   - A structure to hold the buckets and their chains
-    //   - A way to track the table size
-    //   - A way to track the total number of entries
-    //   - A hash function to use when hashing keys
-    //
-    // Think about what containers make sense at each level.
-    // Your choice here is the most important design decision
-    // in the project. Document it in Design_Decisions.md.
+    std::vector<std::list<HashTableEntry<K, V>>> table_;
+    int tableSize_;
+    int numEntries_;
+    std::function<int(const K&, int)> hashFn_;
 
 public:
 
     // ---------------------------------------------------------
-    // Constructor
-    //   Initializes the hash table with the given number of
-    //   buckets and a hash function to use for all insert and
-    //   find operations. Use a prime number for tableSize
-    //   (recommended: 19997).
-    //
-    //   Example usage:
-    //     HashTable<std::string, int> table(19997, modHash);
-    //     HashTable<std::string, int> table(19997, hornerHash);
-    //
-    //   std::function lets you pass a function as a parameter.
-    //   Store it and call it like any other function:
-    //     hashFn_(key, tableSize_)
-    // ---------------------------------------------------------
     HashTable(int tableSize,
               std::function<int(const K&, int)> hashFn)
     {
-        // TODO: Initialize your internal structure and store the
-        //       hash function for later use by insert() and find().
+        tableSize_ = tableSize;
+        hashFn_ = hashFn;
+        numEntries_ = 0;
+        table_.resize(tableSize_);
     }
 
     // ---------------------------------------------------------
@@ -81,8 +56,23 @@ public:
     // ---------------------------------------------------------
     void insert(const K& key) override
     {
-        // TODO: Implement.
+    int index = hashFn_(key, tableSize_);
+
+    //Search the chain for an existing entry
+    for (auto& entry : table_[index])
+    {
+        if (entry.key == key)
+        {
+            // If found, increment its value by 1.
+            entry.value++;
+            return;
+        }
     }
+
+    // Add a new entry with value 1
+    table_[index].push_back(HashTableEntry<K, V>(key, 1));
+    numEntries_++;
+}
 
     // ---------------------------------------------------------
     // find
@@ -92,8 +82,15 @@ public:
     // ---------------------------------------------------------
     V find(const K& key) const override
     {
-        // TODO: Implement.
-        return V();
+    int index = hashFn_(key, tableSize_);
+
+    for (const auto& entry : table_[index])
+    {
+        if (entry.key == key)
+        {return entry.value;
+        }
+    }
+        return 0;
     }
 
     // ---------------------------------------------------------
@@ -103,8 +100,7 @@ public:
     // ---------------------------------------------------------
     double getLoadFactor() const override
     {
-        // TODO: Implement.
-        return 0.0;
+       return static_cast<double>(numEntries_) / tableSize_;
     }
 
     // ---------------------------------------------------------
@@ -113,8 +109,15 @@ public:
     // ---------------------------------------------------------
     int getLongestChain() const override
     {
-        // TODO: Implement.
-        return 0;
+    int maxChain = 0;
+    for (const auto& bucket : table_)
+    {
+        if (static_cast<int>(bucket.size()) > maxChain)
+        {
+            maxChain = bucket.size();
+        }
+    }
+    return maxChain;    
     }
 
     // ---------------------------------------------------------
@@ -124,8 +127,19 @@ public:
     // ---------------------------------------------------------
     int getShortestChain() const override
     {
-        // TODO: Implement.
-        return 0;
+    int minChain = -1; // -1 indicates no non-empty buckets found yet
+    for (const auto& bucket : table_)
+    {
+        if (!bucket.empty())
+        {
+            int currentSize = bucket.size();
+            if (minChain == -1 || currentSize < minChain)
+            {
+                minChain = currentSize;
+            }
+        }
+    }
+    return (minChain == -1) ? 0 : minChain;
     }
 
     // ---------------------------------------------------------
@@ -135,8 +149,19 @@ public:
     // ---------------------------------------------------------
     double getAverageChainLength() const override
     {
-        // TODO: Implement.
-        return 0.0;
+    if (numEntries_==0) return 0.0;
+    double totalChainLength = 0;
+    int nonEmptyBuckets = 0;
+
+    for (const auto& bucket : table_)
+    {
+        if (!bucket.empty())
+        {
+            totalChainLength += bucket.size();
+            nonEmptyBuckets++;
+        }
+    }
+    return totalChainLength / nonEmptyBuckets;
     }
 
     // ---------------------------------------------------------
@@ -147,10 +172,16 @@ public:
     // ---------------------------------------------------------
     std::vector<std::pair<K, V>> getAllEntries() const override
     {
-        // TODO: Implement.
-        //   Iterate every bucket, iterate every entry in each chain,
-        //   and push each key-value pair into the result vector.
-        return {};
+    std::vector<std::pair<K, V>> allEntries;
+
+    for (const auto& bucket : table_)
+    {
+        for (const auto& entry: bucket)
+        {
+            allEntries.push_back(std::make_pair(entry.key, entry.value));
+        }
+    }
+    return allEntries;
     }
 
 }; // end HashTable
